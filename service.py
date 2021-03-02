@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 
 import db
 import api
@@ -18,25 +19,41 @@ def get_played_logins():
             logins.append(user['login'])
     return logins
 
-def get_usage_stat(role, month = 'currMonth'):
+def get_supplies_stat():
     logins = get_played_logins()
     res = {}
-    total = len(logins)
+    for login in logins:
+        user = load_user(login)
+        supplies = user['currMonth']['supplies'] if 'currMonth' in user else []
+        for supply in supplies:
+            name = supply['name']
+            res[name] = res.get(name, 0) + supply['count']
+    return {k: v for k, v in sorted(res.items(), key=lambda kv: kv[1])}
+
+def get_usage_stat(role, month = 'currMonth'):
+    logins = get_played_logins()
+    times = {}
+    scores = {}
+    used_logins = []
     for login in logins:
         user = load_user(login)
         activities = user[month]['activities'] if month in user else []
         target_group = list(filter(lambda act: act['role'] == role, activities))
         if role == 'Module' and len(list(filter(lambda mod: mod['name'].find('Spectrum') != -1, target_group))) != 0:
             continue
-        if (len(target_group) == 0):
-            total = total - 1
+        if (len(activities) > 0):
+            used_logins.append(login)
         for entity in target_group:
             name = entity['name']
-            res[name] = res.get(name, 0) + entity['time']
+            times[name] = times.get(name, 0) + entity['time']
+            scores[name] = scores.get(name, 0) + entity['score']
+
     
-    print(total)
+    print(used_logins, len(used_logins))
     key_mapper = lambda k: MODULES_MAP[k] if role == 'Module' else k
-    return dict((key_mapper(k), v) for k, v in sorted(res.items(), key=lambda kv: kv[1]))
+
+    res_mapper = lambda items : dict((key_mapper(k), v) for k, v in sorted(items.items(), key=lambda kv: kv[1]))
+    return res_mapper(times), res_mapper(scores)
 
 def calculate_module_stat():
     logins = get_played_logins()
@@ -67,21 +84,34 @@ def calculate_module_stat():
 
 def plot_all_usages_pie(usage: dict):
     plt.rcdefaults()
-    for name in ['Module', 'Hull', 'Turret', 'Mode']:    
-        plt.figure(name)
-        plt.title(name + ' usage', fontdict={'fontsize': 'large', 'fontweight': 'bold'})
-        plot_on_axe(plt, usage[name])
+    for name in usage.keys():    
+        # plt.figure(name)
+        # plt.title(name + ' usage', fontdict={'fontsize': 'large', 'fontweight': 'bold'})
+        times, scores = usage[name]
+        plot_on_axe(name, plt, times, scores)
 
     plt.show()
 
 
-def plot_on_axe(plt, usage_stat: dict):
+def plot_on_axe(cat: str, plt, times: dict, scores: dict):
 
-    def get_labels():
-        total = sum(usage_stat.values())
-        return [f'{name} [{round(time/total * 100)}%]' for name, time in usage_stat.items()]
+    fig, (ax1, ax2) = plt.subplots(1, 2)
 
-    plt.pie(list(usage_stat.values()), labels=get_labels())
+    fig.canvas.set_window_title(cat)
+
+    colours = {}
+    for idx, name in enumerate(times.keys()):
+        colours[name] = f'C{idx}'
+
+    def get_labels(items):
+        total = sum(items.values())
+        return [f'{name} [{round(param/total * 100)}%]' for name, param in items.items()]
+
+    ax1.pie(list(times.values()), labels=get_labels(times), colors=[colours[label] for label in times.keys()])
+    ax1.set_title(f"{cat}s by time")
+
+    ax2.pie(list(scores.values()), labels=get_labels(scores), colors=[colours[label] for label in scores.keys()])
+    ax2.set_title(f"{cat}s by score")
 
 
 def plot_usage_pie(usage_stat: dict):
