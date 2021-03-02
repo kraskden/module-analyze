@@ -34,6 +34,8 @@ def get_usage_stat(role, month = 'currMonth'):
     logins = get_played_logins()
     times = {}
     scores = {}
+    rel_times = {}
+    rel_scores = {}
     used_logins = []
     for login in logins:
         user = load_user(login)
@@ -43,17 +45,22 @@ def get_usage_stat(role, month = 'currMonth'):
             continue
         if (len(activities) > 0):
             used_logins.append(login)
+        time_sum = sum(map(lambda t: t['time'], target_group))
+        score_sum = sum(map(lambda t: t['score'], target_group))
+
         for entity in target_group:
             name = entity['name']
             times[name] = times.get(name, 0) + entity['time']
             scores[name] = scores.get(name, 0) + entity['score']
+            rel_times[name] = rel_times.get(name, 0) + entity['time'] / time_sum
+            rel_scores[name] = rel_scores.get(name, 0) + entity['score'] / score_sum
 
     
     print(used_logins, len(used_logins))
     key_mapper = lambda k: MODULES_MAP[k] if role == 'Module' else k
 
     res_mapper = lambda items : dict((key_mapper(k), v) for k, v in sorted(items.items(), key=lambda kv: kv[1]))
-    return res_mapper(times), res_mapper(scores)
+    return res_mapper(times), res_mapper(scores), res_mapper(rel_times), res_mapper(rel_scores)
 
 def calculate_module_stat():
     logins = get_played_logins()
@@ -87,21 +94,22 @@ def plot_all_usages_pie(usage: dict):
     for name in usage.keys():    
         # plt.figure(name)
         # plt.title(name + ' usage', fontdict={'fontsize': 'large', 'fontweight': 'bold'})
-        times, scores = usage[name]
-        plot_on_axe(name, plt, times, scores)
+        times, scores, rel_times, rel_scores = usage[name]
+        colours = {}
+        for idx, cat in enumerate(times.keys()):
+            colours[cat] = f'C{idx}'
+
+        plot_on_axe(name, plt, times, scores, colours)
+        plot_on_axe(f'Relative {name}', plt, rel_times, rel_scores, colours)
 
     plt.show()
 
 
-def plot_on_axe(cat: str, plt, times: dict, scores: dict):
+def plot_on_axe(cat: str, plt, times: dict, scores: dict, colours: dict):
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
 
     fig.canvas.set_window_title(cat)
-
-    colours = {}
-    for idx, name in enumerate(times.keys()):
-        colours[name] = f'C{idx}'
 
     def get_labels(items):
         total = sum(items.values())
