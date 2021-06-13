@@ -9,7 +9,7 @@ import numpy as np
 
 TURRET_COUNT = 15
 
-MODULES_MAP = db.json.loads("{\"Fox\":\"Firebird\",\"Badger\":\"Freeze\",\"Ocelot\":\"Isida\",\"Wolf\":\"Hammer\",\"Panther\":\"Twins\",\"Lion\":\"Ricochet\",\"Dolphin\":\"Smoky\",\"Orka\":\"Striker\",\"Shark\":\"Vulcan\",\"Grizzly\":\"Thunder\",\"Falcon\":\"Railgun\",\"Griffin\":\"Magnum\",\"Owl\":\"Gauss\",\"Eagle\":\"Shaft\",\"Spider\":\"Mines\"}")
+MODULES_MAP = db.json.loads("{\"Fox\":\"Firebird\",\"Badger\":\"Freeze\",\"Ocelot\":\"Isida\",\"Wolf\":\"Hammer\",\"Panther\":\"Twins\",\"Lion\":\"Ricochet\",\"Dolphin\":\"Smoky\",\"Orka\":\"Striker\",\"Shark\":\"Vulcan\",\"Grizzly\":\"Thunder\",\"Falcon\":\"Railgun\",\"Griffin\":\"Magnum\",\"Owl\":\"Gauss\",\"Eagle\":\"Shaft\",\"Spider\":\"Mines\", \"Armadillo \":\"Crit\"}")
 
 def get_played_logins():
     users = load_users()
@@ -19,27 +19,31 @@ def get_played_logins():
             logins.append(user['login'])
     return logins
 
-def get_supplies_stat():
+def get_supplies_stat(month: int = -1):
     logins = get_played_logins()
     res = {}
     for login in logins:
         user = load_user(login)
-        supplies = user['currMonth']['supplies'] if 'currMonth' in user else []
+        monthly = user['monthly']
+        supplies = get_activity(user, month, 'supplies')
+        # supplies = user['currMonth']['supplies'] if 'currMonth' in user else []
         for supply in supplies:
             name = supply['name']
             res[name] = res.get(name, 0) + supply['count']
     return {k: v for k, v in sorted(res.items(), key=lambda kv: kv[1])}
 
-def get_usage_stat(role, month = 'currMonth'):
+def get_usage_stat(role, month):
     logins = get_played_logins()
     times = {}
     scores = {}
     rel_times = {}
     rel_scores = {}
     used_logins = []
+    hopper_logins = []
     for login in logins:
         user = load_user(login)
-        activities = user[month]['activities'] if month in user else []
+        activities = get_activity(user, month, 'activities')
+        # activities = user[month]['activities'] if month in user else []
         target_group = list(filter(lambda act: act['role'] == role, activities))
         if role == 'Module' and len(list(filter(lambda mod: mod['name'].find('Spectrum') != -1, target_group))) != 0:
             continue
@@ -50,6 +54,8 @@ def get_usage_stat(role, month = 'currMonth'):
 
         for entity in target_group:
             name = entity['name']
+            if (name == 'Hopper' and entity['time'] / time_sum > 0.5):
+                hopper_logins.append(login)
             times[name] = times.get(name, 0) + entity['time']
             scores[name] = scores.get(name, 0) + entity['score']
             rel_times[name] = rel_times.get(name, 0) + entity['time'] / time_sum
@@ -57,12 +63,13 @@ def get_usage_stat(role, month = 'currMonth'):
 
     
     print(used_logins, len(used_logins))
+    print(hopper_logins, len(hopper_logins))
     key_mapper = lambda k: MODULES_MAP[k] if role == 'Module' else k
 
     res_mapper = lambda items : dict((key_mapper(k), v) for k, v in sorted(items.items(), key=lambda kv: kv[1]))
     return res_mapper(times), res_mapper(scores), res_mapper(rel_times), res_mapper(rel_scores)
 
-def calculate_module_stat():
+def calculate_module_stat(month: int):
     logins = get_played_logins()
     stat = list([0.0 for _ in range(0, TURRET_COUNT)])
     ideal_stat = list([0.0 for _ in range(0, TURRET_COUNT)])
@@ -70,7 +77,8 @@ def calculate_module_stat():
 
     for login in logins:
         user = load_user(login)
-        activities = user['currMonth']['activities'] if 'currMonth' in user else []
+        activities = get_activity(user, month, 'activities')
+        # activities = user['currMonth']['activities'] if 'currMonth' in user else []
         modules = list(filter(lambda act: act['role'] == 'Module', activities))
         if len(list(filter(lambda mod: mod['name'].find('Spectrum') != -1, modules))) != 0:
             continue
@@ -88,6 +96,13 @@ def calculate_module_stat():
     ideal_stat = list(map(lambda x: x / stat_count, ideal_stat))
     
     return (stat, ideal_stat)
+
+def get_activity(user, month, activity: str):
+    if type(month) == str:
+        return user[month][activity] if month in user else []
+    else:
+        monthly = user['monthly']
+        return monthly[month][activity] if len(monthly) > abs(month) else []
 
 def plot_all_usages_pie(usage: dict):
     plt.rcdefaults()
