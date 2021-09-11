@@ -9,7 +9,7 @@ import numpy as np
 
 TURRET_COUNT = 15
 
-MODULES_MAP = db.json.loads("{\"Fox\":\"Firebird\",\"Badger\":\"Freeze\",\"Ocelot\":\"Isida\",\"Wolf\":\"Hammer\",\"Panther\":\"Twins\",\"Lion\":\"Ricochet\",\"Dolphin\":\"Smoky\",\"Orka\":\"Striker\",\"Shark\":\"Vulcan\",\"Grizzly\":\"Thunder\",\"Falcon\":\"Railgun\",\"Griffin\":\"Magnum\",\"Owl\":\"Gauss\",\"Eagle\":\"Shaft\",\"Spider\":\"Mines\", \"Armadillo \":\"Crit\"}")
+MODULES_MAP = db.json.loads("{\"Fox\":\"Firebird\",\"Badger\":\"Freeze\",\"Ocelot\":\"Isida\",\"Wolf\":\"Hammer\",\"Panther\":\"Twins\",\"Lion\":\"Ricochet\",\"Dolphin\":\"Smoky\",\"Orka\":\"Striker\",\"Shark\":\"Vulcan\",\"Grizzly\":\"Thunder\",\"Falcon\":\"Railgun\",\"Griffin\":\"Magnum\",\"Owl\":\"Gauss\",\"Eagle\":\"Shaft\",\"Spider\":\"Mines\", \"Armadillo \":\"Crit\",\"Weasel\":\"Tesla\"}")
 
 def get_played_logins():
     users = load_users()
@@ -58,8 +58,8 @@ def get_usage_stat(role, month):
                 hopper_logins.append(login)
             times[name] = times.get(name, 0) + entity['time']
             scores[name] = scores.get(name, 0) + entity['score']
-            rel_times[name] = rel_times.get(name, 0) + entity['time'] / time_sum
-            rel_scores[name] = rel_scores.get(name, 0) + entity['score'] / score_sum
+            rel_times[name] = rel_times.get(name, 0) + entity['time'] / time_sum if time_sum != 0 else 0
+            rel_scores[name] = rel_scores.get(name, 0) + entity['score'] / score_sum if score_sum != 0 else 0
 
     
     print(used_logins, len(used_logins))
